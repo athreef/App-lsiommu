@@ -1,0 +1,33 @@
+#!/usr/bin/env perl
+
+use Env '@PATH';
+push @PATH, qw(/sbin /usr/sbin /usr/local/sbin);
+use utf8;
+binmode(STDOUT, ":encoding(utf8)");
+
+for (<"/sys/kernel/iommu_groups/*/devices/*">) {
+    m{^/sys/kernel/iommu_groups/(\d+)/devices/(?:0000:)?(.*)$}
+        and push @{$groups[$1]}, $2
+        or warn "Unable to parse $_\n";
+}
+
+die 'Error reading "/sys/kernel/iommu_groups/*/devices/*":', " $@\n" if $!;
+
+print "IOMMU\n";
+for ($i = 0; $i <= $#groups; $i++) {
+    if ($i == $#groups) {
+        $isym = '└';
+        $jsym = '     ';
+    } else {
+        $isym = '├';
+        $jsym = '│   ├';
+    }
+
+    print "$isym── $i\n";
+    for ($j = 0; $j <= $#{$groups[$i]}; $j++) {
+        $jsym =~ s/^(.*).$/$1└/ if $j == $#{$groups[$i]};
+
+        print "$jsym── ";
+        system 'lspci', '-nns', $groups[$i][$j] and print "$groups[$i][$j]\n";
+    }
+}
